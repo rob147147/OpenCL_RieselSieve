@@ -7,6 +7,9 @@ long mulmod(ulong x, ulong y, ulong m){
         return (b%m);
     }
 
+    //uint2 xVec = {(uint)(x>32),(uint)(x)};
+    //uint2 yVec = {(uint)(y>32),(uint)(y)};
+
 //Shift a as far left as possible, modulo m
 //Shift a as far left as possible again and modulo m
 //Keep shifting left and modulo'ing until shifted left 64 times
@@ -102,13 +105,13 @@ __kernel void sieveKernel(
 {
     int gid = get_global_id(0);
     ulong b = KernelP[gid];
-    int plessone = 0; 
-    if (b>INT_MAX) {
-        plessone = INT_MAX;
-    }
-    else {
-        plessone = (int)(b-1);
-    }
+    //int plessone = 0; 
+    //if (b>INT_MAX) {
+    //    plessone = INT_MAX;
+   // }
+    //else {
+    //    plessone = (int)(b-1);
+   // }
 
     int c1s[] = {0};
 
@@ -119,7 +122,7 @@ __kernel void sieveKernel(
     for (int i=0; i<numKs; i++) {
         c1s[i] = binExtEuclid(ks[i],b);
     }
-    ulong b1 = (ulong)KernelBase;
+    ulong b1 = (ulong)KernelBase % b;
     ulong b2 = (b1 * b1) % b;
     ulong b3 = (b2 * b2) % b;
     ulong b4 = mulmod(b3, b3, b);
@@ -149,28 +152,29 @@ __kernel void sieveKernel(
     }
 
 //The loop above is only run once as it doesn't depend on c1, and the loop below is run for each c1 (each k value)
-//The following method of not breaking the loops to gain speedup assumes x0!=0, which is a fair assumption
+
+    int permD = d;
+    bool xor = 1;
 
     for (int i=0; i<numKs; i++) {
+        d = permD;
         c1 = c1s[i];
-        for (int p = 0; p<loops*64; p++){
+        while(xor) {
 
             j = ((c1)&3);
             d = d - (1<<j<<j);
-            c1 = mulmod(c1,bs[j],b);
+            c1 = mulmod(c1,bs[j],b);           
+
+            xor = (c1!=x0);
+            output = (1-xor)*(d + NMin);
 
             if (d<0) {
-                p=loops*64;
-            }            
-
-            if (c1==x0) {
-                output = (d+NMin)%plessone;
-                p=loops*64;
-            }
+                xor=0;
+            }        
             
-
         }
-        if (output > NMax || output < NMin) {
+
+        if (output < NMin || output > NMax) {
             output=-3;
         }
         
@@ -188,7 +192,7 @@ __kernel void sieveKernel(
                                 z = counter;
                                 y=counter;
                             }
-                            else if (kns[j+z]==output) {
+                            else if (kns[y+z]==output) {
                                 //We've got a match, leave output and breakout
                                 z = counter;
                                 y=counter;
@@ -222,7 +226,7 @@ __kernel void sieveKernel(
         }
     }
    
-    NOut[gid] = output;
+    NOut[gid] = x0;
     
     return;
 }

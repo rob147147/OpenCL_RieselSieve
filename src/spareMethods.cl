@@ -10,6 +10,23 @@ int binlog(long x) {
     return log;
 }
 
+long mulmod(ulong a,ulong b,ulong c){    
+    
+    ulong x = 0,y=a;
+    ulong t;
+    
+    while(b){
+        if(b & 1){
+            t = x+y;
+            x = (t>c) ? t-c : t;
+        }
+        t = y<<1;
+        y = (t>c) ? t-c : t;        
+        b >>=1;
+    }
+    return x;    
+}
+
 long mulmod2(long x, long y, long m){
     if (x>y) {
         x^=y;

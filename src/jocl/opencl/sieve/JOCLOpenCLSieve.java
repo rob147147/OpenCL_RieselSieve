@@ -3,18 +3,17 @@ package jocl.opencl.sieve;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import static org.jocl.CL.*;
-import org.jocl.*;
+import java.net.URLDecoder;
 import java.nio.*;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
+import org.jocl.*;
+import static org.jocl.CL.*;
 
 /**
  *
@@ -53,14 +52,17 @@ public class JOCLOpenCLSieve {
     static double logkb = Math.log(base[0]);
 
     //Set by User on command line
-    static int Pmin = 3;
-    static long Pmax = 100000000;
+    static long Pmin = 2;
+    static long Pmax = 1000000;
     
-    static String fileStr = "sr_108.abcd"; 
+    static String fileStr = "sr_745.abcd";
+    static String decodedPath;
+    static boolean NetBeans = true;
 
     //Used by program to traverse the range of P values set by user
+    //The greater we can push PArraySize the more we hide latency on the GPU. Faster GPUs can have greater PArraySize and perform even better than scaling factor
     static long Pcurrent = Pmin;
-    static int PArraySize = 16384*16;
+    static int PArraySize = 16384/8;
     static long PEndOfLoop = 0;
 
     static int factors = 0;
@@ -72,9 +74,23 @@ public class JOCLOpenCLSieve {
     
     //Used to control threads
     static final Semaphore usingPArray = new Semaphore(1, true);
-
+    
 
     public static void main(String[] args) {
+        
+        try {
+            String path = JOCLOpenCLSieve.class.getProtectionDomain().getCodeSource().getLocation().getPath();
+            path = (new File(path)).getParentFile().getPath();
+            if(NetBeans) {
+                path = (new File(path)).getParentFile().getPath();
+            }
+            decodedPath = URLDecoder.decode(path, "UTF-8");
+            System.out.println(decodedPath);
+        }
+        catch (Exception e) {
+            
+        }
+        
         printOpenCLInfo();
         initCL();
         
@@ -133,9 +149,9 @@ public class JOCLOpenCLSieve {
         //}
         double diff = nMaxint-nMinint; 
         int loops = (int)Math.sqrt(diff);
-        loops++;
-        loops=loops<<1;
-        //loops=(int)(loops*2);
+        //loops++;
+        //loops=loops<<1;
+        loops=(int)(loops*2.5);
         System.out.println("Loops: " + loops);
         int[] nMin = new int[1];
         int[] nMax = new int[1];
@@ -254,12 +270,19 @@ public class JOCLOpenCLSieve {
 
             //Run the kernel
             KernelExeStartTime = System.currentTimeMillis();
-            clEnqueueNDRangeKernel(commandQueue, kernel, 1, null, global_work_size, null, 0, null, null);                
+            clEnqueueNDRangeKernel(commandQueue, kernel, 1, null, global_work_size, null, 0, null, null);
+            clEnqueueReadBuffer(commandQueue, memObjects[1], CL_TRUE, 0, Sizeof.cl_long * PArraySize, dst, 0, null, null);
+            //clEnqueueNDRangeKernel(commandQueue, kernel, 1, null, global_work_size, null, 0, null, null);
+            //clEnqueueNDRangeKernel(commandQueue, kernel, 1, null, global_work_size, null, 0, null, null);
+            //clEnqueueNDRangeKernel(commandQueue, kernel, 1, null, global_work_size, null, 0, null, null);
+            //clEnqueueNDRangeKernel(commandQueue, kernel, 1, null, global_work_size, null, 0, null, null);
+            //clEnqueueNDRangeKernel(commandQueue, kernel, 1, null, global_work_size, null, 0, null, null);
+            //clEnqueueNDRangeKernel(commandQueue, kernel, 1, null, global_work_size, null, 0, null, null);
             clFinish(commandQueue);
             KernelExeEndTime = System.currentTimeMillis();
             // Read the output data
             KernelReadStartTime = System.currentTimeMillis();
-            clEnqueueReadBuffer(commandQueue, memObjects[1], CL_TRUE, 0, Sizeof.cl_long * PArraySize, dst, 0, null, null);
+            //clEnqueueReadBuffer(commandQueue, memObjects[1], CL_TRUE, 0, Sizeof.cl_long * PArraySize, dst, 0, null, null);
             KernelReadEndTime = System.currentTimeMillis();
             clReleaseMemObject(memObjects[0]);
 
@@ -282,13 +305,17 @@ public class JOCLOpenCLSieve {
                     long temp = NOut[d];
                     temp = temp<<32;
                     temp = temp>>32;
-                    addFactors(KernelP[d] + "|" + (NOut[d]>>32) + "*" + base[0] + "^" + temp + "-1\n");
+                    //addFactors(KernelP[d] + "|" + (NOut[d]>>32) + "*" + base[0] + "^" + temp + "-1\n");
                     //We could remove the N value from the array to speed up future searching
                 }
             }
-            //for (int d=0; d<PArraySize; d++) {
-                //System.out.println("The output for " + KernelP[d] + " is: " + NOut[d]);
-            //}
+            int loopmax = 0;
+            for (int d=0; d<PArraySize; d++) {
+                    if (NOut[d]>loopmax) {
+                        loopmax = (int)NOut[d] + loops;
+                    }
+            }
+            System.out.println("LoopMax= " + loopmax);
             FEndTime = System.currentTimeMillis();
             //System.out.println("Factor Execute Time: " + (FEndTime-FStartTime) + "ms");
             FTotal = FTotal + (FEndTime-FStartTime);
@@ -305,8 +332,8 @@ public class JOCLOpenCLSieve {
         System.out.println(loopcounter + " kernel executions");
         System.out.println(FTotal + "ms to complete the factors code");
         System.out.println("Factors found: " + factors);
-        System.out.println((Pmax/KernelTotal)*1000 + " p/sec");
-        System.out.println(((Pmax/loopcounter)/(KernelEndTime-KernelStartTime))*1000 + " p/sec last kernel avg");
+        System.out.println(((Pmax-Pmin)/KernelTotal)*1000 + " p/sec");
+        System.out.println((((Pmax-Pmin)/loopcounter)/(KernelEndTime-KernelStartTime))*1000 + " p/sec last kernel avg");
         
         // Release kernel, program, and memory objects
 //        clReleaseMemObject(memObjects[0]);
@@ -364,7 +391,7 @@ public class JOCLOpenCLSieve {
 
         // Program Setup
         //C:\\Users\\Rob\\Documents\\NetBeansProjects\\JOCL OpenCL Sieve\\
-        String source = readFile("SieveKernel.cl");
+        String source = readFile("MontSieveKernel.cl");
 
         // Create the program
         cpProgram = clCreateProgramWithSource(context, 1, new String[]{ source }, null, null);
@@ -444,7 +471,7 @@ public class JOCLOpenCLSieve {
 
         public static void openABCD() throws IOException{
             //C:\\Users\\Rob\\Documents\\NetBeansProjects\\JOCL OpenCL Sieve\\
-        File file = new File(fileStr);
+        File file = new File(decodedPath + "\\" + fileStr);
         BufferedReader bufRdr = new BufferedReader(new FileReader(file));
         String line = null;
         while((line = bufRdr.readLine()) != null) {
@@ -497,7 +524,7 @@ public class JOCLOpenCLSieve {
 
         public static synchronized void addFactors(String factor) {
             try {
-                BufferedWriter out = new BufferedWriter(new FileWriter("factors.txt", true));
+                BufferedWriter out = new BufferedWriter(new FileWriter(decodedPath + "\\factors.txt", true));
                 out.write(factor);
                 out.close();
             }
@@ -509,7 +536,7 @@ public class JOCLOpenCLSieve {
     
         private static String readFile(String fileName) {
         try {
-            BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(fileName)));
+            BufferedReader br = new BufferedReader(new FileReader(decodedPath + "\\" + fileName));
             StringBuffer sb = new StringBuffer();
             String line = null;
             while (true)
