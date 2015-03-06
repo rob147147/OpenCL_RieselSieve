@@ -53,16 +53,16 @@ public class JOCLOpenCLSieve {
 
     //Set by User on command line
     static long Pmin = 2;
-    static long Pmax = 1000000;
+    static long Pmax = 100000000;
     
-    static String fileStr = "sr_745.abcd";
+    static String fileStr = "sr_108.abcd";
     static String decodedPath;
     static boolean NetBeans = true;
 
     //Used by program to traverse the range of P values set by user
     //The greater we can push PArraySize the more we hide latency on the GPU. Faster GPUs can have greater PArraySize and perform even better than scaling factor
     static long Pcurrent = Pmin;
-    static int PArraySize = 16384/8;
+    static int PArraySize = 16384*64;
     static long PEndOfLoop = 0;
 
     static int factors = 0;
@@ -272,18 +272,8 @@ public class JOCLOpenCLSieve {
             KernelExeStartTime = System.currentTimeMillis();
             clEnqueueNDRangeKernel(commandQueue, kernel, 1, null, global_work_size, null, 0, null, null);
             clEnqueueReadBuffer(commandQueue, memObjects[1], CL_TRUE, 0, Sizeof.cl_long * PArraySize, dst, 0, null, null);
-            //clEnqueueNDRangeKernel(commandQueue, kernel, 1, null, global_work_size, null, 0, null, null);
-            //clEnqueueNDRangeKernel(commandQueue, kernel, 1, null, global_work_size, null, 0, null, null);
-            //clEnqueueNDRangeKernel(commandQueue, kernel, 1, null, global_work_size, null, 0, null, null);
-            //clEnqueueNDRangeKernel(commandQueue, kernel, 1, null, global_work_size, null, 0, null, null);
-            //clEnqueueNDRangeKernel(commandQueue, kernel, 1, null, global_work_size, null, 0, null, null);
-            //clEnqueueNDRangeKernel(commandQueue, kernel, 1, null, global_work_size, null, 0, null, null);
             clFinish(commandQueue);
             KernelExeEndTime = System.currentTimeMillis();
-            // Read the output data
-            KernelReadStartTime = System.currentTimeMillis();
-            //clEnqueueReadBuffer(commandQueue, memObjects[1], CL_TRUE, 0, Sizeof.cl_long * PArraySize, dst, 0, null, null);
-            KernelReadEndTime = System.currentTimeMillis();
             clReleaseMemObject(memObjects[0]);
 
             //Time the kernel completes execution
@@ -305,17 +295,17 @@ public class JOCLOpenCLSieve {
                     long temp = NOut[d];
                     temp = temp<<32;
                     temp = temp>>32;
-                    //addFactors(KernelP[d] + "|" + (NOut[d]>>32) + "*" + base[0] + "^" + temp + "-1\n");
+                    addFactors(KernelP[d] + "|" + (NOut[d]>>32) + "*" + base[0] + "^" + temp + "-1\n");
                     //We could remove the N value from the array to speed up future searching
                 }
             }
-            int loopmax = 0;
-            for (int d=0; d<PArraySize; d++) {
-                    if (NOut[d]>loopmax) {
-                        loopmax = (int)NOut[d] + loops;
-                    }
-            }
-            System.out.println("LoopMax= " + loopmax);
+//            int loopmax = 0;
+//            for (int d=0; d<PArraySize; d++) {
+//                    if (NOut[d]>loopmax) {
+//                        loopmax = (int)NOut[d] + loops;
+//                    }
+//            }
+//            System.out.println("LoopMax= " + loopmax);
             FEndTime = System.currentTimeMillis();
             //System.out.println("Factor Execute Time: " + (FEndTime-FStartTime) + "ms");
             FTotal = FTotal + (FEndTime-FStartTime);
@@ -337,13 +327,13 @@ public class JOCLOpenCLSieve {
         
         // Release kernel, program, and memory objects
 //        clReleaseMemObject(memObjects[0]);
-//        clReleaseMemObject(memObjects[1]);
-//        clReleaseMemObject(memObjects[2]);
-//        clReleaseMemObject(memObjects[3]);
-//        clReleaseMemObject(memObjects[4]);
-//        clReleaseMemObject(memObjects[5]);
-//        clReleaseMemObject(memObjects[6]);
-//        clReleaseMemObject(memObjects[7]);
+        clReleaseMemObject(memObjects[1]);
+        clReleaseMemObject(memObjects[2]);
+        clReleaseMemObject(memObjects[3]);
+        clReleaseMemObject(memObjects[4]);
+        clReleaseMemObject(memObjects[5]);
+        clReleaseMemObject(memObjects[6]);
+        clReleaseMemObject(memObjects[7]);
         clReleaseKernel(kernel);
         clReleaseProgram(cpProgram);
         clReleaseCommandQueue(commandQueue);

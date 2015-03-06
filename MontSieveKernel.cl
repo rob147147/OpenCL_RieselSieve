@@ -179,9 +179,9 @@ __kernel void sieveKernel(
 
     int permD = d;
     ulong c1 = 0;
-int count = 0;
+    //int count = 0;
 
-    for (int i=0; i<1; i++) {
+    for (int i=0; i<numKs; i++) {
         d = permD;
         bool xor = 1;
         output = -5;
@@ -189,7 +189,7 @@ int count = 0;
         //Move this to montgomery space
         c1 = modul64(c1,0,b);
         while(xor) {
-            count++;
+            //count++;
             j = ((c1)&3);
             d = d - (1<<j<<j);
             c1 = montmul(c1,bs[j],b,rInvMdash.y);
@@ -263,7 +263,7 @@ int count = 0;
         }
     }
    
-    NOut[gid] = count;
+    NOut[gid] = output;
     
     return;
 }
