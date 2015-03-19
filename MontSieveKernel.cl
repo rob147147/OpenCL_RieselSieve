@@ -44,6 +44,8 @@ ulong modul64(ulong x, ulong y, ulong z) {
 ulong montmul(ulong abar, ulong bbar, ulong m, ulong mprime) {
     ulong thi, tlo, tm, tmmhi, tmmlo, uhi, ulo, ov;
 
+    //Could use hadd/rhadd in here to provide the extra 1 bit of accuracy necessary to detect overflows. Should remove the need for if statements at the end of this method. 
+
     thi = mul_hi(abar,bbar);
     tlo = abar*bbar;
     
@@ -53,18 +55,20 @@ ulong montmul(ulong abar, ulong bbar, ulong m, ulong mprime) {
     tmmhi = mul_hi(tm,m);
     tmmlo = tm*m;
 
-    ulo = tlo + tmmlo; // Add t to tmm
-    uhi = thi + tmmhi; // (128-bit add).
+    //We only need to know if ulo overflows so use hadd and shift right 63 bits
+    ulo = (hadd(tlo,tmmlo))>>63;
+    //ulo contains 0 if no overflow and 1 if there was an overflow, so should just be added to uhi. 
+    uhi = thi + tmmhi + ulo; // (128-bit add).
+    ov = hadd(thi,tmmhi)>>63;
+    //If ov=1 we have overflowed. If adding ulo would have made us overflow then thi+tmmhi is all 1 bits. When we add ulo we get uhi=0 and ulo=1, so check for this.
  
-    if (ulo < tlo) uhi = uhi + 1; // Allow for a carry.
-    // The above addition can overflow. Detect that here.
-    ov = (uhi < thi) | ((uhi == thi) & (ulo < tlo));
-    ulo = uhi; // Shift u right
-    uhi = 0; // 64 bit positions.
-    if (ov > 0 || ulo >= m) // If u >= m,
-        ulo = ulo - m; // subtract m from u.
+    //Dividing by 2^64 (shifting right 64 bits) is the same as ulo = uhi. So just use uhi instead to save the transfer
+    //If uhi is less than or equal thi then the addition has overflowed unless one of thi or tmmhi was 0. 
+    if (uhi >= m || ov>0 || (uhi==0 && ulo==1)) { // If u >= m,
+        uhi = uhi - m; // subtract m from u.
+    }
  
-    return ulo;
+    return uhi;
 } 
 
 long binExtEuclid(long a, long b){
@@ -168,11 +172,11 @@ __kernel void sieveKernel(
 
     int j = 0;
     ulong bs[] = {b1,b3,b5,b7};
-    
+
     for (int i = 0; i<loops; i++){
         j = ((x0)&3);
         d = d + (1<<j<<j);
-        x0 = montmul(x0,bs[j],b,rInvMdash.y);
+        x0 = montmul(x0,bs[j],b,rInvMdash.y);        
     }
 
 //The loop above is only run once as it doesn't depend on c1, and the loop below is run for each c1 (each k value)
