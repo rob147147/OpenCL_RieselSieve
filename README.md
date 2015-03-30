@@ -2,9 +2,9 @@
 A JOCL based OpenCL sieve for numbers of the form k*b^n-1
 
 To run this code requires the following 3 files:
-JOCLOpenCLSieve.java
-PThread.java
-MontSieveKernel.cl
+JOCLOpenCLSieve.java<br />
+PThread.java<br />
+MontSieveKernel.cl<br />
 
 The algorithm implemented in MontSieveKernel.cl uses Pollard's Kangaroo Method for solving the discrete log problem and Montgomery multiplication.
 
