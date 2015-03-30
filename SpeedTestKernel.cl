@@ -39,7 +39,7 @@ ulong modul64(ulong x, ulong y, ulong z) {
         }
     }
  return x; // Quotient is y.
-}
+} 
 
 ulong montmul(ulong abar, ulong bbar, ulong m, ulong mprime) {
     ulong thi, tlo, tm, tmmhi, tmmlo, uhi, ulo, ov;
@@ -57,17 +57,14 @@ ulong montmul(ulong abar, ulong bbar, ulong m, ulong mprime) {
 
     //We only need to know if ulo overflows so use hadd and shift right 63 bits
     ulo = (hadd(tlo,tmmlo))>>63;
-    //ulo contains 0 if no overflow and 1 if there was an overflow. 
-
-    ov = rhadd(thi,tmmhi)>>63;
-    //If ov=1 we will overflow or be all 1 bits (if ulo==0), which will be >= m, so add them and subtract m.
-    uhi = thi+tmmhi-(ov*m);
-    //We can add 1 if we need to without overflowing as we've already checked using rhadd
-    uhi = uhi+ulo;
-    
+    //ulo contains 0 if no overflow and 1 if there was an overflow, so should just be added to uhi. 
+    uhi = thi + tmmhi + ulo; // (128-bit add).
+    ov = hadd(thi,tmmhi)>>63;
+    //If ov=1 we have overflowed. If adding ulo would have made us overflow then thi+tmmhi is all 1 bits. When we add ulo we get uhi=0 and ulo=1, so check for this.
  
-    //Dividing by 2^64 (shifting right 64 bits) is the same as ulo = uhi. So just use uhi instead to save the transfer 
-    if (uhi >= m) { // If u >= m,
+    //Dividing by 2^64 (shifting right 64 bits) is the same as ulo = uhi. So just use uhi instead to save the transfer
+    //If uhi is less than or equal thi then the addition has overflowed unless one of thi or tmmhi was 0. 
+    if (uhi >= m || ov>0 || (uhi==0 && ulo==1)) { // If u >= m,
         uhi = uhi - m; // subtract m from u.
     }
  
@@ -104,12 +101,14 @@ long binExtEuclid(long a, long b){
                r = r - s;
                if (r<0){
                   r = r + b;
-               } 
+               } else {
+                } 
             } else {
                v = x * -1;
                s = s - r;
                if (s<0){
                   s = s + b;
+               } else {
                }
             }
          }
@@ -140,10 +139,12 @@ __kernel void sieveKernel(
 {
     int gid = get_global_id(0);
     ulong b = KernelP[gid];
-    ulong2 rInvMdash = xbinGCD(0x8000000000000000UL, b);
+    ulong a = 0x8000000000000000UL;
+    ulong2 rInvMdash = xbinGCD(a, b);
 
     long output = -5;
     int d = NMax-NMin;
+    int loops = loop;
 
     //Move b1 to montgomery space
     ulong b1 = modul64(KernelBase,0,b);
@@ -172,7 +173,7 @@ __kernel void sieveKernel(
     int j = 0;
     ulong bs[] = {b1,b3,b5,b7};
 
-    for (int i = 0; i<loop; i++){
+    for (int i = 0; i<loops; i++){
         j = ((x0)&3);
         d = d + (1<<j<<j);
         x0 = montmul(x0,bs[j],b,rInvMdash.y);        
@@ -199,7 +200,10 @@ __kernel void sieveKernel(
 
             xor = (c1!=x0);
             output = (1-xor)*(d + NMin);
-            xor = xor&(!(d>>31));        
+
+            if (d<0) {
+                xor=0;
+            }        
             
         }
 
