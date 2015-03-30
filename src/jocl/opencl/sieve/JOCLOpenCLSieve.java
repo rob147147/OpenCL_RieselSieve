@@ -53,16 +53,17 @@ public class JOCLOpenCLSieve {
 
     //Set by User on command line
     static long Pmin = 2;
-    static long Pmax = 100000000;
+    static long Pmax = 1000000000;
     
     static String fileStr = "sr_108.abcd";
     static String decodedPath;
     static boolean NetBeans = true;
+    static String kernelStr = "MontMul24SieveKernel.cl";
 
     //Used by program to traverse the range of P values set by user
     //The greater we can push PArraySize the more we hide latency on the GPU. Faster GPUs can have greater PArraySize and perform even better than scaling factor
     static long Pcurrent = Pmin;
-    static int PArraySize = 16384*64;
+    static int PArraySize = 16384*128;
     static long PEndOfLoop = 0;
 
     static int factors = 0;
@@ -85,6 +86,7 @@ public class JOCLOpenCLSieve {
                 path = (new File(path)).getParentFile().getPath();
             }
             decodedPath = URLDecoder.decode(path, "UTF-8");
+            decodedPath = decodedPath.replace("\\", "/");
             System.out.println(decodedPath);
         }
         catch (Exception e) {
@@ -295,22 +297,23 @@ public class JOCLOpenCLSieve {
                     long temp = NOut[d];
                     temp = temp<<32;
                     temp = temp>>32;
-                    addFactors(KernelP[d] + "|" + (NOut[d]>>32) + "*" + base[0] + "^" + temp + "-1\n");
+                    //addFactors(KernelP[d] + "|" + (NOut[d]>>32) + "*" + base[0] + "^" + temp + "-1\n");
                     //We could remove the N value from the array to speed up future searching
                 }
             }
 //            int loopmax = 0;
 //            for (int d=0; d<PArraySize; d++) {
 //                    if (NOut[d]>loopmax) {
-//                        loopmax = (int)NOut[d] + loops;
+//                        loopmax = (int)NOut[d];
 //                    }
 //            }
+//            loopmax = loopmax + loops;
 //            System.out.println("LoopMax= " + loopmax);
             FEndTime = System.currentTimeMillis();
             //System.out.println("Factor Execute Time: " + (FEndTime-FStartTime) + "ms");
             FTotal = FTotal + (FEndTime-FStartTime);
 
-            //System.out.println("From GPU: " + NOut[0] + "," + NOut[1] + "," + NOut[2] + "," + NOut[3] + "," + NOut[4] + "," + NOut[5] + "," + NOut[6] + "," + NOut[7] + "," + NOut[8] + "," + NOut[9]);
+            System.out.println("From GPU: " + NOut[0] + "," + NOut[1] + "," + NOut[2] + "," + NOut[3] + "," + NOut[4] + "," + NOut[5] + "," + NOut[6] + "," + NOut[7] + "," + NOut[8] + "," + NOut[9]);
             //System.out.println("Factors: " + KernelP[0] + "," + KernelP[1] + "," + KernelP[2] + "," + KernelP[3] + "," + KernelP[4] + "," + KernelP[5] + "," + KernelP[6] + "," + KernelP[7] + "," + KernelP[8] + "," + KernelP[9]);
             System.out.println("Factors in this kernel: " + kernelFactors);
             
@@ -381,13 +384,13 @@ public class JOCLOpenCLSieve {
 
         // Program Setup
         //C:\\Users\\Rob\\Documents\\NetBeansProjects\\JOCL OpenCL Sieve\\
-        String source = readFile("MontSieveKernel.cl");
+        String source = readFile(kernelStr);
 
         // Create the program
         cpProgram = clCreateProgramWithSource(context, 1, new String[]{ source }, null, null);
         
         // Build the program
-        clBuildProgram(cpProgram, 0, null, "-Werror", null, null);
+        clBuildProgram(cpProgram, 0, null, "-Werror -cl-fast-relaxed-math", null, null);
 
         // Create the kernel
         kernel = clCreateKernel(cpProgram, "sieveKernel", null);
@@ -461,7 +464,7 @@ public class JOCLOpenCLSieve {
 
         public static void openABCD() throws IOException{
             //C:\\Users\\Rob\\Documents\\NetBeansProjects\\JOCL OpenCL Sieve\\
-        File file = new File(decodedPath + "\\" + fileStr);
+        File file = new File(decodedPath + "/" + fileStr);
         BufferedReader bufRdr = new BufferedReader(new FileReader(file));
         String line = null;
         while((line = bufRdr.readLine()) != null) {
@@ -514,7 +517,7 @@ public class JOCLOpenCLSieve {
 
         public static synchronized void addFactors(String factor) {
             try {
-                BufferedWriter out = new BufferedWriter(new FileWriter(decodedPath + "\\factors.txt", true));
+                BufferedWriter out = new BufferedWriter(new FileWriter(decodedPath + "/factors.txt", true));
                 out.write(factor);
                 out.close();
             }
@@ -526,7 +529,7 @@ public class JOCLOpenCLSieve {
     
         private static String readFile(String fileName) {
         try {
-            BufferedReader br = new BufferedReader(new FileReader(decodedPath + "\\" + fileName));
+            BufferedReader br = new BufferedReader(new FileReader(decodedPath + "/" + fileName));
             StringBuffer sb = new StringBuffer();
             String line = null;
             while (true)
