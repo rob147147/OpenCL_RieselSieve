@@ -31,7 +31,21 @@
         <h3>
 <a id="welcome-to-github-pages" class="anchor" aria-hidden="true"></a>Project Overview</h3>
 
-<p>This project is an attempt to port the popular srsieve program to OpenCL in order to utilise the power of GPUs.  </p>
+<p>This project is an attempt to port the popular srsieve program to OpenCL in order to utilise the power of GPUs. The current version of this code uses Java for the CPU-side and JOCL to compile and execute the kernel on a GPU. </p>
+
+<a id="welcome-to-github-pages" class="anchor" aria-hidden="true"></a>Purpose</h3>
+
+<p>The purpose of this sieve program (and srsieve) is to find small(ish) factors of numbers of the form k*b^n-1. Finding a factor for a particular expression saves performing a more expensive LLR test in order to see if the expression is prime. </p>
+
+<a id="welcome-to-github-pages" class="anchor" aria-hidden="true"></a>Algorithm</h3>
+
+<p>The main chunk of the kernel involves solving a discrete logarithm problem, and the algorithm used here is Pollard's Kangaroo(sometimes called Lambda) algorithm. This is a probabilistic algorithm, and thus can miss occasional factors if it is not executed for enough loops. Once the discrete log has been solved the remainder of the algorithm checks for any matches with the candidates we are interested in.  </p>
+<p>All multiplications are done in montgomery space to remove computationally expensive modulo operations, and recent kernels use mul24/mad24 operations which should be considerably quicker on recent AMD GPUs.  </p>
+
+<a id="welcome-to-github-pages" class="anchor" aria-hidden="true"></a>Performance</h3>
+
+<p>Performance is currently reasonable on small test cases on my ATI HD4850, but on larger test cases performance does not yet match that of a recent CPU. A small number of tests have been carried out on GCN based AMD GPUs but performance is currently worse than the HD4850. This seems to be caused by high VGPR usage reducing the number of waves in flight per SIMD.  </p>
+<p>Without regular access to a GCN card it is difficult to debug why performance is so poor. If anyone with a GCN card and CodeXL would like to help provide analysis and feedback please feel free to get in touch.   </p>
 
       </section>
       <footer>
